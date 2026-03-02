@@ -1,4 +1,4 @@
-package org.example.expert.config;
+package org.example.expert.security;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
@@ -11,14 +11,21 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.expert.domain.user.enums.UserRole;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
+import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 
 @Slf4j
+@Component
 @RequiredArgsConstructor
 public class JwtFilter implements Filter {
 
     private final JwtUtil jwtUtil;
+    private final CustomUserDetailsService customUserDetailsService;
 
     @Override
     public void init(FilterConfig filterConfig) throws ServletException {
@@ -55,24 +62,38 @@ public class JwtFilter implements Filter {
                 return;
             }
 
-            UserRole userRole = UserRole.valueOf(claims.get("userRole", String.class));
+//            UserRole userRole = UserRole.valueOf(claims.get("userRole", String.class));
+//
+//            httpRequest.setAttribute("userId", Long.parseLong(claims.getSubject()));
+//            httpRequest.setAttribute("nickname", claims.get("nickname"));
+//            httpRequest.setAttribute("email", claims.get("email"));
+//            httpRequest.setAttribute("userRole", claims.get("userRole"));
 
-            httpRequest.setAttribute("userId", Long.parseLong(claims.getSubject()));
-            httpRequest.setAttribute("nickname", claims.get("nickname"));
-            httpRequest.setAttribute("email", claims.get("email"));
-            httpRequest.setAttribute("userRole", claims.get("userRole"));
+            String email = claims.get("email", String.class);
 
-            if (url.startsWith("/admin")) {
-                // 관리자 권한이 없는 경우 403을 반환합니다.
-                if (!UserRole.ADMIN.equals(userRole)) {
-                    httpResponse.sendError(HttpServletResponse.SC_FORBIDDEN, "관리자 권한이 없습니다.");
-                    return;
-                }
-                chain.doFilter(request, response);
-                return;
-            }
+            UserDetails userDetails = customUserDetailsService.loadUserByUsername(email);
 
-            chain.doFilter(request, response);
+//            if (url.startsWith("/admin")) {
+//                // 관리자 권한이 없는 경우 403을 반환합니다.
+//                if (!UserRole.ADMIN.equals(userRole)) {
+//                    httpResponse.sendError(HttpServletResponse.SC_FORBIDDEN, "관리자 권한이 없습니다.");
+//                    return;
+//                }
+//                chain.doFilter(request, response);
+//                return;
+//            }
+
+            UsernamePasswordAuthenticationToken authentication =
+                    new UsernamePasswordAuthenticationToken(
+                            userDetails,
+                            null,
+                            userDetails.getAuthorities()
+                    );
+
+            authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(httpRequest));
+
+            SecurityContextHolder.getContext().setAuthentication(authentication);
+            // chain.doFilter(request, response);
         } catch (SecurityException | MalformedJwtException e) {
             log.error("Invalid JWT signature, 유효하지 않는 JWT 서명 입니다.", e);
             httpResponse.sendError(HttpServletResponse.SC_UNAUTHORIZED, "유효하지 않는 JWT 서명입니다.");

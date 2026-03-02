@@ -1,7 +1,7 @@
 package org.example.expert.domain.auth.service;
 
 import lombok.RequiredArgsConstructor;
-import org.example.expert.config.JwtUtil;
+import org.example.expert.security.JwtUtil;
 import org.example.expert.config.PasswordEncoder;
 import org.example.expert.domain.auth.dto.request.SigninRequest;
 import org.example.expert.domain.auth.dto.request.SignupRequest;
